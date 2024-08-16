@@ -18,7 +18,7 @@ const transactionSchema = new mongoose.Schema({
     category: {
         type: String,
         required: true,
-        enum: ['electronics', 'clothings','other']
+        enum: ["electronics","men's clothing","women's clothing","jewelery"]
     },
     image: {
         type: String, // Cloudinary url
