@@ -8,7 +8,7 @@ import { listTransactions,
 
 const router = Router();
 
-router.get('/', listTransactions);
+router.get('/transactions', listTransactions);
 router.get('/statistics', getTransactionStatistics);
 router.get('/barchart', getBarChartData);
 router.get('/piechart', getPieChartData);
