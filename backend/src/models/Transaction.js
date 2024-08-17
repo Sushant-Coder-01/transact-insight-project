@@ -29,10 +29,11 @@ const transactionSchema = new mongoose.Schema({
         required: true,
         default: false,
     },
-    dateofSale: {
+    dateOfSale: {
         type: Date,
         required: true,
         default: Date.now,
+        index: true
     },
 });
 
