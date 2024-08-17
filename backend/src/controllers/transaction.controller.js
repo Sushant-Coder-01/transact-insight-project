@@ -2,14 +2,13 @@ import { Transaction } from "../models/Transaction.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/AsyncHandler.js";
+import axios from "axios";
 
 // list transactions API
 
 const listTransactions = asyncHandler( async(req, res) => {
 
     const { search = '', page = 1, perPage = 10, month } = req.query;
-
-    console.log('month:', month);
 
     // validate page and perPage.
     const pageNum = parseInt(page,10);
@@ -36,10 +35,6 @@ const listTransactions = asyncHandler( async(req, res) => {
         }
     };
 
-    console.log('Query:', query);
-    console.log('Start Date:', startDate.toISOString());
-    console.log('End Date:', endDate.toISOString());
-
     // added search criteria
     if(search){
         query.$or = [
@@ -54,8 +49,6 @@ const listTransactions = asyncHandler( async(req, res) => {
     const transaction = await Transaction.find(query)
     .skip((pageNum - 1)*perPageNum)
     .limit(parseInt(perPageNum));
-
-    console.log("transaction:", transaction);
 
     if(!transaction.length){
         throw new ApiError(404,"No transaction found!");
@@ -106,10 +99,6 @@ const getTransactionStatistics = asyncHandler( async(req, res) => {
     // Execute the aggregation pipeline
     const stats = await Transaction.aggregate(pipeline);
 
-    console.log("stats:",stats);
-    console.log('Start Date:', startDate.toISOString());
-    console.log('End Date:', endDate.toISOString());
-    console.log('Aggregation Pipeline:', JSON.stringify(pipeline));
 
 
     // Check if statistics were found
@@ -117,8 +106,9 @@ const getTransactionStatistics = asyncHandler( async(req, res) => {
         throw new ApiError(404, "No statistics found for the given month.");
     }
 
+
      // Send response
-     res.status(200).json(
+    res.status(200).json(
         new ApiResponse(200, stats[0], "Transaction statistics fetched successfully!")
     );
 })
@@ -226,52 +216,41 @@ const getPieChartData = asyncHandler( async(req, res) => {
 
 // combined data.
 
-const getCombinedData = asyncHandler( async(req, res) =>{
+const getCombinedData = asyncHandler(async (req, res) => {
 
-    const{month} = req.query;
+    const { month } = req.query ;
 
-    // Define async functions with error handling
+    // validate month parameter.
 
-    const fetchTransactionStaticstics = async () => {
-        try {
-            return await getTransactionStatistics(req, res);
-        } catch (error) {
-            throw new ApiError(500,"Error fechting transaction staticstics.");
-        }
+    if(!month){
+        throw new ApiError(400,"Month is required!");
     }
 
-    const fetchBarChartData = async () => {
-        try {
-            return await getBarChartData(req, res);
-        } catch (error) {
-            throw new ApiError(500, "Error fetching bar chart data.");
-        }
-    };
+    try {
+        const [ transactionListResponse, statsResponse, barChartResponse, pieChartResponse ] = await Promise.all([
+            axios.get(`http://localhost:8000/api/transactions/?month=${month}`),
+            axios.get(`http://localhost:8000/api/transactions/statistics?month=${month}`),
+            axios.get(`http://localhost:8000/api/transactions/barchart?month=${month}`),
+            axios.get(`http://localhost:8000/api/transactions/piechart?month=${month}`)
+        ]);
+    
+        const transactionList = transactionListResponse.data ;
+        const stats = statsResponse.data ;
+        const barChartData = barChartResponse.data ;
+        const pieChartData = pieChartResponse.data ;
+    
+        console.log("transactionList:",transactionList);
+    
+        res.status(200).json(
+            new ApiResponse(200,transactionList, stats, barChartData, pieChartData, "combined data fetched successfully !"),
+        );
+    } catch (error) {
 
-    const fetchPieChartData = async () => {
-        try {
-            return await getPieChartData(req, res);
-        } catch (error) {
-            throw new ApiError(500, "Error fetching pie chart data.");
-        }
-    };
+        throw new ApiError(500,"data is not fetched!");
+    }
+    
+});
 
-    // Run queries in parallel
-    const [stats, barChartData, pieChartData] = await Promise.all([
-        fetchTransactionStaticstics(),
-        fetchBarChartData(),
-        fetchPieChartData()
-    ]);
-
-    // Send response
-    res.status(200).json({
-        statistics: new ApiResponse(200, stats, "Transaction statistics fetched successfully!"),
-        barChart: new ApiResponse(200, barChartData, "Bar chart data fetched successfully!"),
-        pieChart: new ApiResponse(200, pieChartData, "Pie chart data fetched successfully!")
-    });
-
-
-})
 
 export  {
     listTransactions,
